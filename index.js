@@ -64,7 +64,7 @@ async function run() {
     });
 
     //get all receipt
-    app.get('/receipt',verifyJWT, async (req, res) => {
+    app.get('/receipt' ,async (req, res) => {
       // const tokenInfo = req.headers.authorization;
       // const [email, accessToken] = tokenInfo?.split(" ");
       // const decoded = verifyToken(accessToken)
