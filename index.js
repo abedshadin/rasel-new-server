@@ -11,7 +11,23 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
 
+  if (!authHeader) {
+      return res.status(401).send({ message: 'Unauthorized access' })
+  }
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_SECRET_TOKEN, (err, decoded) => {
+      if (err) {
+          return res.status(403).send({ message: 'Forbidden access' })
+      }
+      console.log('decoded', decoded);
+      req.decoded = decoded;
+      next();
+  })
+
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cj9ty.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -24,16 +40,31 @@ async function run() {
     await client.connect();
     const firmCollection = client.db('firm').collection('firms');
     const receiptCollection = client.db('receipts').collection('receipt');
+
+
+     // AUTH
+     app.post('/login', async (req, res) => {
+      const user = req.body;
+      const accessToken = jwt.sign(user, process.env.ACCESS_SECRET_TOKEN, {
+          expiresIn: '1d'
+      });
+      res.send({ accessToken });
+
+  })
+
+  
     //get all firms list on select
-    app.get('/firm', async (req, res) => {
+    app.get('/firm',verifyJWT, async (req, res) => {
       const query = {};
       const cursor = firmCollection.find(query);
       const firms = await cursor.toArray();
       res.send(firms);
+     
+      
     });
 
     //get all receipt
-    app.get('/receipt', async (req, res) => {
+    app.get('/receipt',verifyJWT, async (req, res) => {
       // const tokenInfo = req.headers.authorization;
       // const [email, accessToken] = tokenInfo?.split(" ");
       // const decoded = verifyToken(accessToken)
@@ -52,7 +83,7 @@ async function run() {
 
 
      //delete single receipt
-     app.delete("/receipt/:id", async (req, res) => {
+     app.delete("/receipt/:id",verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await receiptCollection.deleteOne(query);
@@ -146,7 +177,7 @@ async function run() {
     //get some by total daily on homepage
 
 
-    app.get("/reports/daily", async (req, res) => {
+    app.get("/reports/daily",verifyJWT, async (req, res) => {
       const date = req.query.date;
       const query = { date: date };
       const reports = await receiptCollection.find(query).toArray();
@@ -155,7 +186,7 @@ async function run() {
     //get some by total yearly on homepage
 
 
-    app.get("/reports/yearly", async (req, res) => {
+    app.get("/reports/yearly",verifyJWT, async (req, res) => {
       const year = req.query.year;
       const query = { year: year };
       const reports = await receiptCollection.find(query).toArray();
@@ -166,7 +197,7 @@ async function run() {
     //get some by total monthly on homepage
 
 
-    app.get("/homes", async (req, res) => {
+    app.get("/homes",verifyJWT, async (req, res) => {
       const month = req.query.month;
       const query = { month: month };
       const reports = await receiptCollection.find(query).toArray();
@@ -177,7 +208,7 @@ async function run() {
     //get some by month
 
 
-    app.get("/reports", async (req, res) => {
+    app.get("/reports",verifyJWT, async (req, res) => {
       const month = req.query.month;
       const query = { month: month };
       const reports = await receiptCollection.find(query).toArray();
@@ -217,19 +248,12 @@ async function run() {
       // }
     });
     //add receipt
-    app.post("/receipt", async (req, res) => {
+    app.post("/receipt",   async (req, res) => {
       const newOrder = req.body;
-      // const tokenInfo = req.headers.authorization;
-      // const [email, accessToken] = tokenInfo?.split(" ");
-      // const decoded = verifyToken(accessToken)
-      // if (email === decoded.email) {
+    
         const result = await receiptCollection.insertOne(newOrder);
         res.send(result);
-      // }
-
-      // else {
-      //   res.send({ success: 'unauthorize' })
-      // }
+     
     });
 
 
